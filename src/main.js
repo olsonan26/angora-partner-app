@@ -24,10 +24,46 @@ const TABS = {
 
 const STORAGE_KEY = "angora-partner-app-state";
 const AUTHENTICATED_CLASS = "authenticated";
+const MOTION_READY_CLASS = "motion-ready";
 const RANGE_OPTIONS = ["4w", "8w", "3m", "6m", "1y"];
 const DEFAULT_RANGE = "4w";
 const DEFAULT_SCREEN = "home";
 const DEFAULT_DEMO_NAME = "Benjamin";
+const REDUCED_MOTION_QUERY = window.matchMedia("(prefers-reduced-motion: reduce)");
+const PRESSABLE_SURFACE_SELECTOR = [
+  ".demo-primary",
+  ".demo-secondary",
+  ".hdr-btn",
+  ".tab-btn",
+  ".qa-btn",
+  ".ar",
+  ".back",
+  ".range-pill",
+  ".sr",
+  ".skuinv",
+  ".fcard",
+  ".nmb",
+  ".crow",
+  ".ti",
+  ".tlcard",
+].join(", ");
+const AMBIENT_SURFACE_SELECTOR = [
+  ".login-feature",
+  ".login-preview-stat",
+  ".demo-meta-card",
+  ".login-preview-card",
+  ".login-card",
+  ".login-story",
+  ".ic",
+  ".ibcard",
+  ".adv",
+  ".aicard",
+  ".snap-card",
+  ".profit-hero",
+  ".sg",
+  ".sk",
+].join(", ");
+const INTERACTIVE_TEXT_SELECTOR = [".session-link"].join(", ");
 
 const REPORTS = {
   mar20: {
@@ -231,6 +267,15 @@ const RANGE_CONFIG = {
 let currentRange = DEFAULT_RANGE;
 let currentData = [];
 let currentReportId = "mar20";
+let chartTooltipHideTimer;
+
+function prefersReducedMotion() {
+  return REDUCED_MOTION_QUERY.matches;
+}
+
+function updateMotionPreference() {
+  document.body.classList.toggle(MOTION_READY_CLASS, !prefersReducedMotion());
+}
 
 function loadState() {
   try {
@@ -300,6 +345,10 @@ function setAuthenticatedView(isAuthenticated) {
       window.setTimeout(() => nameInputNode.focus(), 60);
     }
   }
+
+  window.setTimeout(() => {
+    runCurrentViewMotion();
+  }, 40);
 }
 
 function loginDemo(name) {
@@ -358,6 +407,115 @@ function bindAuthControls() {
   }
 }
 
+function refreshMotionTargets(root = document) {
+  root.querySelectorAll(PRESSABLE_SURFACE_SELECTOR).forEach((element) => {
+    element.dataset.interactive = "surface";
+  });
+  root.querySelectorAll(AMBIENT_SURFACE_SELECTOR).forEach((element) => {
+    if (!element.dataset.interactive) {
+      element.dataset.interactive = "ambient";
+    }
+  });
+  root.querySelectorAll(INTERACTIVE_TEXT_SELECTOR).forEach((element) => {
+    element.dataset.interactive = "text";
+  });
+
+  document.querySelectorAll(".ts, .login-story, .login-card").forEach((container) => {
+    Array.from(container.children).forEach((child) => {
+      if (child.tagName !== "STYLE") {
+        child.dataset.revealTarget = "true";
+      }
+    });
+  });
+}
+
+function clearPressedState() {
+  document.querySelectorAll(".is-pressed").forEach((element) => {
+    element.classList.remove("is-pressed");
+  });
+}
+
+function createMotionRipple(target, event) {
+  if (prefersReducedMotion()) {
+    return;
+  }
+
+  const rect = target.getBoundingClientRect();
+  const ripple = document.createElement("span");
+  const size = Math.max(rect.width, rect.height) * 1.35;
+
+  ripple.className = "motion-ripple";
+  ripple.style.width = `${size}px`;
+  ripple.style.height = `${size}px`;
+  ripple.style.left = `${event.clientX - rect.left}px`;
+  ripple.style.top = `${event.clientY - rect.top}px`;
+
+  target.appendChild(ripple);
+  ripple.addEventListener("animationend", () => ripple.remove(), { once: true });
+}
+
+function bindMotionInteractions() {
+  if (document.body.dataset.motionBound === "true") {
+    return;
+  }
+
+  document.body.dataset.motionBound = "true";
+
+  document.addEventListener("pointerdown", (event) => {
+    const target = event.target.closest('[data-interactive="surface"]');
+    if (!target) {
+      return;
+    }
+
+    target.classList.add("is-pressed");
+    createMotionRipple(target, event);
+  });
+
+  document.addEventListener("pointerup", clearPressedState);
+  document.addEventListener("pointercancel", clearPressedState);
+  window.addEventListener("blur", clearPressedState);
+}
+
+function animateShellEntry(element) {
+  if (!element || prefersReducedMotion()) {
+    return;
+  }
+
+  element.classList.remove("motion-shell-entry");
+  void element.offsetWidth;
+  element.classList.add("motion-shell-entry");
+}
+
+function animateRevealGroup(container) {
+  if (!container || prefersReducedMotion()) {
+    return;
+  }
+
+  const targets = Array.from(container.children).filter((child) => child.dataset.revealTarget === "true");
+  targets.forEach((target, index) => {
+    target.style.setProperty("--motion-delay", `${index * 44}ms`);
+    target.classList.remove("motion-entrance");
+  });
+
+  window.requestAnimationFrame(() => {
+    targets.forEach((target) => {
+      target.classList.add("motion-entrance");
+    });
+  });
+}
+
+function runCurrentViewMotion() {
+  if (document.body.classList.contains(AUTHENTICATED_CLASS)) {
+    animateShellEntry(document.querySelector(".phone"));
+    animateRevealGroup(document.querySelector(".ts.active"));
+    return;
+  }
+
+  animateShellEntry(document.querySelector(".login-layout"));
+  animateRevealGroup(document.querySelector(".login-story"));
+  animateRevealGroup(document.querySelector(".login-card"));
+}
+
 function renderReport(id) {
   const report = REPORTS[id];
   if (!report) {
@@ -396,6 +554,7 @@ function renderReport(id) {
         `<div class="aiitem"><div class="aidot" style="background:${bullet.color}"></div>${bullet.text}</div>`
     )
     .join("");
+  refreshMotionTargets(document.getElementById("screen-report-detail"));
 
   return true;
 }
@@ -428,6 +587,9 @@ function switchTab(screenName, options = {}) {
     tabNode.classList.add("active");
   }
 
+  refreshMotionTargets(screenNode);
+  animateRevealGroup(screenNode);
+
   if (targetScreen === "reports") {
     window.setTimeout(drawChart, 50);
   }
@@ -456,6 +618,64 @@ function setChartRange(range, options = {}) {
   }
 
   drawChart();
+}
+
+function animateChartLine(node, delay = 0) {
+  if (!node) {
+    return;
+  }
+
+  node.style.transition = "none";
+  node.style.strokeDasharray = "";
+  node.style.strokeDashoffset = "";
+
+  if (prefersReducedMotion()) {
+    return;
+  }
+
+  const length = node.getTotalLength();
+  node.style.strokeDasharray = `${length}`;
+  node.style.strokeDashoffset = `${length}`;
+  void node.getBoundingClientRect();
+  node.style.transition = `stroke-dashoffset 760ms cubic-bezier(.16,1,.3,1) ${delay}ms`;
+  node.style.strokeDashoffset = "0";
+}
+
+function animateChartArea(node, targetOpacity, delay = 0) {
+  if (!node) {
+    return;
+  }
+
+  node.style.transition = "none";
+  if (prefersReducedMotion()) {
+    node.style.opacity = String(targetOpacity);
+    return;
+  }
+
+  node.style.opacity = "0";
+  void node.getBoundingClientRect();
+  node.style.transition = `opacity 420ms ease ${delay}ms`;
+  node.style.opacity = String(targetOpacity);
+}
+
+function animateChartDot(node, delay = 0) {
+  if (!node) {
+    return;
+  }
+
+  node.style.transition = "none";
+  if (prefersReducedMotion()) {
+    node.style.opacity = "1";
+    node.style.transform = "scale(1)";
+    return;
+  }
+
+  node.style.opacity = "0";
+  node.style.transform = "scale(0.35)";
+  void node.getBoundingClientRect();
+  node.style.transition = `opacity 260ms ease ${delay}ms, transform 380ms cubic-bezier(.16,1,.3,1) ${delay}ms`;
+  node.style.opacity = "1";
+  node.style.transform = "scale(1)";
 }
 
 function drawChart() {
@@ -513,6 +733,13 @@ function drawChart() {
     endProfitDot.setAttribute("cx", lastX);
     endProfitDot.setAttribute("cy", lastProfitY);
   }
+
+  animateChartArea(document.getElementById("rev-area"), 0.7, 120);
+  animateChartArea(document.getElementById("pro-area"), 0.7, 180);
+  animateChartLine(document.getElementById("rev-line"), 40);
+  animateChartLine(document.getElementById("pro-line"), 120);
+  animateChartDot(endRevenueDot, 360);
+  animateChartDot(endProfitDot, 430);
 
   const labelNode = document.getElementById("chart-labels");
   if (labelNode) {
@@ -614,6 +841,7 @@ function chartHover(event) {
   const tooltip = document.getElementById("chart-tooltip");
   const chartWrap = document.getElementById("chart-wrap");
   if (tooltip && chartWrap) {
+    window.clearTimeout(chartTooltipHideTimer);
     document.getElementById("tt-date").textContent = point[0];
     document.getElementById("tt-rev").textContent = `$${point[1].toLocaleString()}`;
     document.getElementById("tt-pro").textContent = `$${point[2].toLocaleString()}`;
@@ -627,6 +855,9 @@ function chartHover(event) {
     tooltip.style.left = `${left}px`;
     tooltip.style.top = `${event.clientY - wrapRect.top - 60}px`;
     tooltip.style.display = "block";
+    window.requestAnimationFrame(() => {
+      tooltip.classList.add("is-visible");
+    });
   }
 }
 
@@ -646,7 +877,10 @@ function chartLeave() {
     profitHoverDot.setAttribute("display", "none");
   }
   if (tooltip) {
-    tooltip.style.display = "none";
+    tooltip.classList.remove("is-visible");
+    chartTooltipHideTimer = window.setTimeout(() => {
+      tooltip.style.display = "none";
+    }, 180);
   }
 }
 
@@ -667,6 +901,14 @@ function initializeApp() {
   const savedPartnerName = typeof savedState.partnerName === "string" ? savedState.partnerName : "";
   const isAuthenticated = savedState.authenticated === true;
 
+  updateMotionPreference();
+  if (typeof REDUCED_MOTION_QUERY.addEventListener === "function") {
+    REDUCED_MOTION_QUERY.addEventListener("change", updateMotionPreference);
+  } else if (typeof REDUCED_MOTION_QUERY.addListener === "function") {
+    REDUCED_MOTION_QUERY.addListener(updateMotionPreference);
+  }
+  refreshMotionTargets();
+  bindMotionInteractions();
   bindAuthControls();
   setPartnerName(savedPartnerName, { syncInput: true });
   renderReport(startingReportId);

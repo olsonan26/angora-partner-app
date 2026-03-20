@@ -305,6 +305,95 @@ body.authenticated .login-shell{display:none}
 .range-pill:hover{border-color:rgba(155,135,245,.4);color:var(--text)}
 .active-range{background:rgba(155,135,245,.15)!important;border-color:rgba(155,135,245,.4)!important;color:var(--purple2)!important}
 
+/* Motion Layer */
+.motion-shell-entry{animation:shellEntry .58s cubic-bezier(.16,1,.3,1) both}
+.motion-entrance{animation:revealUp .56s cubic-bezier(.16,1,.3,1) both;animation-delay:var(--motion-delay,0ms)}
+body.motion-ready [data-interactive="surface"],
+body.motion-ready [data-interactive="ambient"]{position:relative;isolation:isolate;overflow:hidden;transition:transform .22s ease,box-shadow .26s ease,border-color .24s ease,filter .24s ease}
+body.motion-ready [data-interactive="surface"]::after,
+body.motion-ready [data-interactive="ambient"]::after{content:'';position:absolute;inset:0;border-radius:inherit;background:linear-gradient(120deg,transparent 0%,rgba(255,255,255,.08) 36%,transparent 72%);opacity:0;transform:translateX(-32%);transition:opacity .28s ease,transform .4s ease;pointer-events:none}
+body.motion-ready [data-interactive="surface"]:hover,
+body.motion-ready [data-interactive="ambient"]:hover{transform:translateY(-2px);filter:saturate(1.04)}
+body.motion-ready [data-interactive="surface"]:hover::after,
+body.motion-ready [data-interactive="ambient"]:hover::after{opacity:1;transform:translateX(0)}
+body.motion-ready [data-interactive="surface"].is-pressed{transform:translateY(0) scale(.985)}
+body.motion-ready [data-interactive="text"]{transition:transform .2s ease,color .2s ease,opacity .2s ease}
+body.motion-ready [data-interactive="text"]:hover{transform:translateY(-1px);opacity:.92}
+.motion-ripple{position:absolute;border-radius:999px;background:radial-gradient(circle,rgba(255,255,255,.42) 0%,rgba(255,255,255,.18) 45%,rgba(255,255,255,0) 74%);transform:translate(-50%,-50%) scale(0);pointer-events:none;animation:rippleOut .7s cubic-bezier(.2,.8,.2,1) forwards}
+body.motion-ready #chart-tooltip{opacity:0;transform:translateY(8px) scale(.98);transition:opacity .18s ease,transform .18s ease}
+body.motion-ready #chart-tooltip.is-visible{opacity:1;transform:translateY(0) scale(1)}
+body.motion-ready #rev-line{filter:drop-shadow(0 0 12px rgba(52,211,153,.26))}
+body.motion-ready #pro-line{filter:drop-shadow(0 0 12px rgba(155,135,245,.26))}
+body.motion-ready #end-rev-dot,
+body.motion-ready #end-pro-dot,
+body.motion-ready #hover-rev-dot,
+body.motion-ready #hover-pro-dot{transform-box:fill-box;transform-origin:center;transition:transform .24s ease,opacity .24s ease}
+body.motion-ready .ts.active .pfill{transform-origin:left center;animation:barGrow .88s cubic-bezier(.16,1,.3,1) both}
+body.motion-ready .ts.active .skv,
+body.motion-ready .ts.active .pv,
+body.motion-ready .ts.active .sgv,
+body.motion-ready .ts.active .sic,
+body.motion-ready .ts.active .fcount,
+body.motion-ready #login-shell .login-preview-value{animation:metricLift .72s cubic-bezier(.16,1,.3,1) both}
+body.motion-ready .ti.active svg{animation:iconPulse 2.4s ease-in-out infinite}
+body.motion-ready .session-chip{animation:chipFloat 2.8s ease-in-out infinite}
+
+@keyframes shellEntry{
+0%{opacity:0;transform:translateY(18px) scale(.985)}
+100%{opacity:1;transform:translateY(0) scale(1)}
+}
+
+@keyframes revealUp{
+0%{opacity:0;transform:translateY(16px) scale(.992)}
+100%{opacity:1;transform:translateY(0) scale(1)}
+}
+
+@keyframes rippleOut{
+0%{opacity:.55;transform:translate(-50%,-50%) scale(0)}
+100%{opacity:0;transform:translate(-50%,-50%) scale(1)}
+}
+
+@keyframes barGrow{
+0%{transform:scaleX(0)}
+100%{transform:scaleX(1)}
+}
+
+@keyframes metricLift{
+0%{opacity:0;transform:translateY(8px)}
+100%{opacity:1;transform:translateY(0)}
+}
+
+@keyframes iconPulse{
+0%,100%{transform:translateY(0) scale(1)}
+50%{transform:translateY(-1.5px) scale(1.04)}
+}
+
+@keyframes chipFloat{
+0%,100%{transform:translateY(0)}
+50%{transform:translateY(-1px)}
+}
+
+@media (prefers-reduced-motion: reduce){
+.motion-shell-entry,.motion-entrance{animation:none!important}
+body.motion-ready [data-interactive="surface"],
+body.motion-ready [data-interactive="ambient"],
+body.motion-ready [data-interactive="text"],
+body.motion-ready #chart-tooltip,
+body.motion-ready #end-rev-dot,
+body.motion-ready #end-pro-dot,
+body.motion-ready #hover-rev-dot,
+body.motion-ready #hover-pro-dot{transition:none!important}
+body.motion-ready .ts.active .pfill,
+body.motion-ready .ts.active .skv,
+body.motion-ready .ts.active .pv,
+body.motion-ready .ts.active .sgv,
+body.motion-ready .ts.active .sic,
+body.motion-ready .ts.active .fcount,
+body.motion-ready #login-shell .login-preview-value,
+body.motion-ready .ti.active svg,
+body.motion-ready .session-chip{animation:none!important}
+}
+
 @media (max-width: 860px){
 .login-shell{width:min(100vw - 24px,720px);min-height:auto}
 .login-layout{grid-template-columns:1fr}
