@@ -405,9 +405,10 @@ body.motion-ready .session-chip{animation:none!important}
 @media (max-width: 480px){
 html,body{align-items:stretch;justify-content:stretch;overflow:hidden}
 body::before,body::after{width:78vw;height:78vw}
-body:not(.authenticated){overflow:auto}
-body:not(.authenticated) .login-shell{width:100%;min-height:100%;padding:16px}
-body:not(.authenticated) .login-layout{gap:16px}
+body:not(.authenticated){align-items:flex-start;justify-content:flex-start;overflow:auto;-webkit-overflow-scrolling:touch}
+body:not(.authenticated) .login-shell{width:100%;min-height:100dvh;align-items:flex-start;justify-content:flex-start;padding:max(12px,env(safe-area-inset-top)) 16px max(24px,env(safe-area-inset-bottom))}
+body:not(.authenticated) .login-layout{gap:16px;align-items:start}
+body:not(.authenticated) .login-panel{align-items:stretch}
 body:not(.authenticated) .login-story{padding:22px;border-radius:24px}
 body:not(.authenticated) .login-preview-grid,.demo-meta-row{grid-template-columns:1fr}
 .phone{width:100vw;height:100vh;border-radius:0;border:none;box-shadow:none}

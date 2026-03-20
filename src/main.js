@@ -30,6 +30,7 @@ const DEFAULT_RANGE = "4w";
 const DEFAULT_SCREEN = "home";
 const DEFAULT_DEMO_NAME = "Benjamin";
 const REDUCED_MOTION_QUERY = window.matchMedia("(prefers-reduced-motion: reduce)");
+const MOBILE_LOGIN_QUERY = window.matchMedia("(max-width: 768px)");
 const PRESSABLE_SURFACE_SELECTOR = [
   ".demo-primary",
   ".demo-secondary",
@@ -315,6 +316,18 @@ function updateStatusTime() {
   timeNode.textContent = `${hour}:${minute}`;
 }
 
+function resetLoginViewportPosition() {
+  const loginShell = document.getElementById("login-shell");
+
+  if (loginShell) {
+    loginShell.scrollTop = 0;
+  }
+
+  document.documentElement.scrollTop = 0;
+  document.body.scrollTop = 0;
+  window.scrollTo(0, 0);
+}
+
 function resolvePartnerName(value) {
   const trimmedValue = typeof value === "string" ? value.trim() : "";
   return trimmedValue || DEFAULT_DEMO_NAME;
@@ -340,8 +353,9 @@ function setAuthenticatedView(isAuthenticated) {
   document.body.classList.toggle(AUTHENTICATED_CLASS, isAuthenticated);
 
   if (!isAuthenticated) {
+    resetLoginViewportPosition();
     const nameInputNode = document.getElementById("demo-name-input");
-    if (nameInputNode) {
+    if (nameInputNode && !MOBILE_LOGIN_QUERY.matches) {
       window.setTimeout(() => nameInputNode.focus(), 60);
     }
   }
