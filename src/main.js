@@ -23,9 +23,11 @@ const TABS = {
 };
 
 const STORAGE_KEY = "angora-partner-app-state";
+const AUTHENTICATED_CLASS = "authenticated";
 const RANGE_OPTIONS = ["4w", "8w", "3m", "6m", "1y"];
 const DEFAULT_RANGE = "4w";
 const DEFAULT_SCREEN = "home";
+const DEFAULT_DEMO_NAME = "Benjamin";
 
 const REPORTS = {
   mar20: {
@@ -266,6 +268,94 @@ function updateStatusTime() {
   const minute = parts.find((part) => part.type === "minute")?.value ?? "41";
 
   timeNode.textContent = `${hour}:${minute}`;
+}
+
+function resolvePartnerName(value) {
+  const trimmedValue = typeof value === "string" ? value.trim() : "";
+  return trimmedValue || DEFAULT_DEMO_NAME;
+}
+
+function setPartnerName(name, options = {}) {
+  const resolvedName = resolvePartnerName(name);
+  const displayNameNode = document.getElementById("partner-display-name");
+  const nameInputNode = document.getElementById("demo-name-input");
+
+  if (displayNameNode) {
+    displayNameNode.textContent = resolvedName;
+  }
+
+  if (nameInputNode && options.syncInput) {
+    nameInputNode.value = typeof name === "string" ? name.trim() : "";
+  }
+
+  return resolvedName;
+}
+
+function setAuthenticatedView(isAuthenticated) {
+  document.body.classList.toggle(AUTHENTICATED_CLASS, isAuthenticated);
+
+  if (!isAuthenticated) {
+    const nameInputNode = document.getElementById("demo-name-input");
+    if (nameInputNode) {
+      window.setTimeout(() => nameInputNode.focus(), 60);
+    }
+  }
+}
+
+function loginDemo(name) {
+  const partnerName = setPartnerName(name);
+
+  saveState({
+    authenticated: true,
+    partnerName,
+    screen: DEFAULT_SCREEN,
+  });
+
+  switchTab(DEFAULT_SCREEN, { persist: false });
+  setAuthenticatedView(true);
+}
+
+function logoutDemo() {
+  const partnerName = setPartnerName(
+    document.getElementById("partner-display-name")?.textContent,
+    { syncInput: true }
+  );
+
+  saveState({
+    authenticated: false,
+    partnerName,
+    screen: DEFAULT_SCREEN,
+  });
+
+  switchTab(DEFAULT_SCREEN, { persist: false });
+  setAuthenticatedView(false);
+}
+
+function bindAuthControls() {
+  const loginForm = document.getElementById("demo-login-form");
+  const skipButton = document.getElementById("demo-skip-button");
+  const signOutButton = document.getElementById("demo-signout");
+  const nameInputNode = document.getElementById("demo-name-input");
+
+  if (loginForm) {
+    loginForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const formData = new FormData(loginForm);
+      loginDemo(formData.get("partnerName"));
+    });
+  }
+
+  if (skipButton) {
+    skipButton.addEventListener("click", () => {
+      loginDemo(nameInputNode?.value);
+    });
+  }
+
+  if (signOutButton) {
+    signOutButton.addEventListener("click", () => {
+      logoutDemo();
+    });
+  }
 }
 
 function renderReport(id) {
@@ -574,12 +664,17 @@ function initializeApp() {
     typeof savedState.reportId === "string" && REPORTS[savedState.reportId]
       ? savedState.reportId
       : currentReportId;
+  const savedPartnerName = typeof savedState.partnerName === "string" ? savedState.partnerName : "";
+  const isAuthenticated = savedState.authenticated === true;
 
+  bindAuthControls();
+  setPartnerName(savedPartnerName, { syncInput: true });
   renderReport(startingReportId);
   setChartRange(startingRange, { persist: false });
   switchTab(startingScreen, { persist: false });
   updateStatusTime();
   window.setInterval(updateStatusTime, 30000);
+  setAuthenticatedView(isAuthenticated);
 }
 
 window.switchTab = switchTab;

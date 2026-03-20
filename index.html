@@ -11,6 +11,114 @@
   <link rel="stylesheet" href="/src/styles.css">
 </head>
 <body>
+<div class="login-shell" id="login-shell">
+  <div class="login-layout">
+    <section class="login-story">
+      <div class="login-brand-row">
+        <div class="login-brand-mark">A</div>
+        <div>
+          <div class="login-brand-eyebrow">Angora Partner</div>
+          <div class="login-brand-sub">Premium visibility for brand partners</div>
+        </div>
+      </div>
+
+      <div class="login-hero">
+        <div class="login-badge">Partner Portal Demo</div>
+        <h1 class="login-title">Open a calm, premium workspace for reports, inventory, and weekly decisions.</h1>
+        <p class="login-copy">
+          This first pass uses a local demo session instead of real email auth, so you can step into the product
+          experience now and wire secure sign-in later.
+        </p>
+      </div>
+
+      <div class="login-feature-list">
+        <div class="login-feature">
+          <div class="login-feature-dot"></div>
+          Weekly reports with margin visibility and AI-ready takeaways
+        </div>
+        <div class="login-feature">
+          <div class="login-feature-dot"></div>
+          Inventory, FBA, and purchase order tracking in one flow
+        </div>
+        <div class="login-feature">
+          <div class="login-feature-dot"></div>
+          Faster partner communication without chasing updates by email
+        </div>
+      </div>
+
+      <div class="login-preview-card">
+        <div class="login-preview-top">
+          <div>
+            <div class="login-preview-label">This Week</div>
+            <div class="login-preview-title">Cal &amp; Rye Snapshot</div>
+          </div>
+          <span class="pill pg">Live Demo</span>
+        </div>
+        <div class="login-preview-grid">
+          <div class="login-preview-stat">
+            <div class="login-preview-value">$8,120</div>
+            <div class="login-preview-meta">Profit</div>
+          </div>
+          <div class="login-preview-stat">
+            <div class="login-preview-value">847</div>
+            <div class="login-preview-meta">FBA Units</div>
+          </div>
+          <div class="login-preview-stat">
+            <div class="login-preview-value">3</div>
+            <div class="login-preview-meta">Open POs</div>
+          </div>
+        </div>
+        <div class="login-preview-note">
+          Built to feel like a client-ready partner workspace, even while the authentication layer is still in demo mode.
+        </div>
+      </div>
+    </section>
+
+    <section class="login-panel">
+      <div class="login-card">
+        <div class="login-card-top">
+          <div class="login-card-eyebrow">Demo Access</div>
+          <h2 class="login-card-title">Enter the workspace</h2>
+          <p class="login-card-copy">
+            Email and password can come next. For now, enter a name or skip straight into the default demo profile.
+          </p>
+        </div>
+
+        <form id="demo-login-form" class="demo-form">
+          <label class="demo-label" for="demo-name-input">Your Name</label>
+          <input
+            class="demo-input"
+            id="demo-name-input"
+            name="partnerName"
+            type="text"
+            autocomplete="name"
+            placeholder="Benjamin"
+          >
+
+          <div class="demo-meta-row">
+            <div class="demo-meta-card">
+              <div class="demo-meta-label">Workspace</div>
+              <div class="demo-meta-value">Cal &amp; Rye</div>
+            </div>
+            <div class="demo-meta-card">
+              <div class="demo-meta-label">Auth Mode</div>
+              <div class="demo-meta-value">Local Demo</div>
+            </div>
+          </div>
+
+          <button class="demo-primary" type="submit">Enter Demo Workspace</button>
+        </form>
+
+        <button class="demo-secondary" id="demo-skip-button" type="button">Use Default Demo Profile</button>
+
+        <div class="demo-footnote">
+          No email required yet. This demo just stores a lightweight local session in the browser.
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+
 <div class="phone">
   <div class="island"></div>
   <div class="sbar">
@@ -29,7 +137,11 @@
       <div class="home-hdr">
         <div>
           <div class="home-greeting">Welcome back</div>
-          <div class="home-name">Benjamin</div>
+          <div class="home-name" id="partner-display-name">Benjamin</div>
+          <div class="session-row">
+            <span class="session-chip">Demo Session</span>
+            <button class="session-link" id="demo-signout" type="button">Sign out</button>
+          </div>
         </div>
         <div class="hdr-btns">
           <div class="hdr-btn" onclick="switchTab('reports')">
