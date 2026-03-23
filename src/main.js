@@ -443,6 +443,13 @@ function refreshMotionTargets(root = document) {
   });
 }
 
+function removeLegacyHoverHandlers(root = document) {
+  root.querySelectorAll("[onmouseover],[onmouseout]").forEach((element) => {
+    element.removeAttribute("onmouseover");
+    element.removeAttribute("onmouseout");
+  });
+}
+
 function clearPressedState() {
   document.querySelectorAll(".is-pressed").forEach((element) => {
     element.classList.remove("is-pressed");
@@ -921,6 +928,7 @@ function initializeApp() {
   } else if (typeof REDUCED_MOTION_QUERY.addListener === "function") {
     REDUCED_MOTION_QUERY.addListener(updateMotionPreference);
   }
+  removeLegacyHoverHandlers();
   refreshMotionTargets();
   bindMotionInteractions();
   bindAuthControls();
