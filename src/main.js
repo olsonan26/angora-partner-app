@@ -1127,12 +1127,221 @@ window.sendPartnerMessage = async function() {
   input.value = '';
 };
 
+// ─── Partner data wiring (Home / Inventory / FBA) ──────────────────────────
+const partnerData = {
+  accountId: null,
+  account: null,
+  products: [],
+  inventory: [],
+  sales: [],
+  ready: false,
+};
+
+async function partnerLoadAccountData() {
+  const sb = partnerSupabase(); if (!sb) return;
+  // Figure out which accounts the partner has access to
+  const { data: access } = await sb.from('angora_partner_access').select('account_id').limit(5);
+  const accountIds = (access || []).map(r => r.account_id);
+  if (accountIds.length === 0) { partnerData.ready = true; return; }
+  // Pick the first account for now (multi-account can come later)
+  const accountId = accountIds[0];
+  partnerData.accountId = accountId;
+  const { data: account } = await sb.from('angora_accounts').select('id, name, status').eq('id', accountId).single();
+  partnerData.account = account;
+  const { data: products } = await sb.from('angora_products').select('*').eq('account_id', accountId);
+  partnerData.products = products || [];
+  if (partnerData.products.length) {
+    const productIds = partnerData.products.map(p => p.id);
+    const [invRes, salesRes] = await Promise.all([
+      sb.from('angora_inventory').select('*').in('product_id', productIds),
+      sb.from('angora_daily_sales').select('*').in('product_id', productIds).gte('date', new Date(Date.now() - 84*86400000).toISOString().slice(0,10)),
+    ]);
+    partnerData.inventory = invRes.data || [];
+    partnerData.sales = salesRes.data || [];
+  }
+  partnerData.ready = true;
+  renderPartnerHome();
+  renderPartnerInventory();
+  renderPartnerFba();
+}
+
+function pdSum(arr, key) { return arr.reduce((s, x) => s + (parseFloat(x[key]) || 0), 0); }
+
+function partnerRunwayDays() {
+  // Avg units/day over last 28 days
+  const cutoff = Date.now() - 28*86400000;
+  const recent = partnerData.sales.filter(s => new Date(s.date).getTime() >= cutoff);
+  const totalUnits = pdSum(recent, 'units_sold');
+  const avgPerDay = totalUnits / 28;
+  if (avgPerDay <= 0) return null;
+  const totalInv = pdSum(partnerData.inventory, 'quantity');
+  return Math.round(totalInv / avgPerDay);
+}
+
+function partnerWeeklyProfit() {
+  // Last 7 days: revenue - ads - other_fees - (units * cogs) - (units * fba_fee)
+  const cutoff = Date.now() - 7*86400000;
+  const recent = partnerData.sales.filter(s => new Date(s.date).getTime() >= cutoff);
+  const prodById = {}; partnerData.products.forEach(p => { prodById[p.id] = p; });
+  let profit = 0;
+  recent.forEach(s => {
+    const p = prodById[s.product_id]; if (!p) return;
+    const u = s.units_sold || 0;
+    const r = parseFloat(s.revenue) || 0;
+    const fba = u * (parseFloat(p.fba_fee_manual) || 0);
+    const referral = r * ((parseFloat(p.referral_fee_pct) || 15) / 100);
+    const cogs = u * (parseFloat(p.cogs) || 0);
+    const other = parseFloat(s.other_fees) || 0;
+    const ads = parseFloat(s.ad_spend) || 0;
+    profit += r - fba - referral - cogs - other - ads;
+  });
+  return profit;
+}
+
+function renderPartnerHome() {
+  const brand = document.getElementById('home-brand');
+  if (brand && partnerData.account) brand.textContent = partnerData.account.name;
+  const fba = document.getElementById('home-kpi-fba');
+  if (fba) {
+    const fbaUnits = partnerData.inventory.filter(i => i.location === 'fba').reduce((s,i) => s + (i.quantity||0), 0);
+    fba.textContent = fbaUnits.toLocaleString();
+  }
+  const profit = document.getElementById('home-kpi-profit');
+  if (profit) {
+    const p = partnerWeeklyProfit();
+    profit.textContent = '$' + Math.round(p).toLocaleString();
+  }
+  const pos = document.getElementById('home-kpi-pos');
+  if (pos) pos.textContent = '0'; // PO tracking not yet in schema
+  const updated = document.getElementById('home-updated');
+  if (updated) updated.textContent = 'Live  |  Updated ' + new Date().toLocaleTimeString([], {hour:'numeric',minute:'2-digit'});
+}
+
+function renderPartnerInventory() {
+  if (!partnerData.ready) return;
+  const psub = document.getElementById('inv-psub');
+  if (psub && partnerData.account) psub.textContent = partnerData.account.name + '  |  Warehouse + FBA';
+  const invByLoc = { angora: 0, fba: 0, awd: 0, other: 0 };
+  partnerData.inventory.forEach(i => { invByLoc[i.location] = (invByLoc[i.location]||0) + (i.quantity||0); });
+  const total = invByLoc.angora + invByLoc.fba + invByLoc.awd + invByLoc.other;
+  const wh = document.getElementById('inv-k-warehouse');
+  if (wh) wh.textContent = (invByLoc.angora + invByLoc.awd).toLocaleString();
+  const fbaEl = document.getElementById('inv-k-fba');
+  if (fbaEl) fbaEl.textContent = invByLoc.fba.toLocaleString();
+  const totalEl = document.getElementById('inv-k-total');
+  if (totalEl) totalEl.textContent = total.toLocaleString();
+  const runway = document.getElementById('inv-k-runway');
+  if (runway) {
+    const r = partnerRunwayDays();
+    runway.textContent = r !== null ? r + ' days' : '—';
+  }
+  // Per-SKU breakdown
+  const list = document.getElementById('inv-sku-list');
+  if (!list) return;
+  const byProd = {};
+  partnerData.inventory.forEach(i => {
+    const k = i.product_id;
+    if (!byProd[k]) byProd[k] = { angora: 0, fba: 0, other: 0 };
+    if (i.location === 'angora' || i.location === 'awd') byProd[k].angora += i.quantity||0;
+    else if (i.location === 'fba') byProd[k].fba += i.quantity||0;
+    else byProd[k].other += i.quantity||0;
+  });
+  if (Object.keys(byProd).length === 0) {
+    list.innerHTML = '<div style="padding:30px 16px;text-align:center;color:var(--muted);font-size:11px">No inventory data yet.</div>';
+    return;
+  }
+  list.innerHTML = partnerData.products.map(p => {
+    const inv = byProd[p.id] || { angora: 0, fba: 0, other: 0 };
+    const total = inv.angora + inv.fba + inv.other;
+    if (total === 0) return '';
+    // Velocity = avg units/wk
+    const sales = partnerData.sales.filter(s => s.product_id === p.id);
+    const recent = sales.filter(s => (Date.now() - new Date(s.date).getTime()) < 84*86400000);
+    const unitsPerWk = pdSum(recent, 'units_sold') / 12;
+    const weeksLeft = unitsPerWk > 0 ? total / unitsPerWk : 99;
+    let label = 'Healthy', colorVar = 'var(--green)', pillClass = 'pg', pct = 100;
+    if (weeksLeft < 2) { label = 'Critical'; colorVar = 'var(--red)'; pillClass = 'po'; pct = 20; }
+    else if (weeksLeft < 4) { label = 'Low Stock'; colorVar = 'var(--orange)'; pillClass = 'po'; pct = 50; }
+    else if (weeksLeft < 8) { label = 'Healthy'; colorVar = 'var(--green)'; pillClass = 'pg'; pct = 75; }
+    else { label = 'Overstock'; colorVar = 'var(--blue)'; pillClass = 'pb'; pct = 100; }
+    const nm = (p.name || p.sku || 'Product').replace(/</g,'&lt;');
+    return `<div class="skuinv">
+      <div class="sit">
+        <div class="sil"><div class="sdot" style="background:${colorVar};margin-top:5px"></div>
+          <div><div class="sin">${nm}</div><div class="siloc">Warehouse: ${inv.angora}  |  FBA: ${inv.fba}</div></div>
+        </div>
+        <div><div class="sic" style="color:${colorVar}">${total.toLocaleString()}</div><span class="pill ${pillClass}">${label}</span></div>
+      </div>
+      <div class="prow"><span>${Math.round(weeksLeft)} weeks at current rate</span><span style="color:${colorVar}">${pct}%</span></div>
+      <div class="pbar"><div class="pfill" style="width:${pct}%;background:${colorVar}"></div></div>
+    </div>`;
+  }).filter(Boolean).join('');
+}
+
+function renderPartnerFba() {
+  if (!partnerData.ready) return;
+  const fbaTotal = partnerData.inventory.filter(i => i.location === 'fba').reduce((s,i) => s + (i.quantity||0), 0);
+  const totalEl = document.getElementById('fba-k-total');
+  if (totalEl) totalEl.textContent = fbaTotal.toLocaleString();
+  // ACoS = ad_spend / revenue over last 28d
+  const cutoff = Date.now() - 28*86400000;
+  const recent = partnerData.sales.filter(s => new Date(s.date).getTime() >= cutoff);
+  const rev = pdSum(recent, 'revenue');
+  const ads = pdSum(recent, 'ad_spend');
+  const acos = rev > 0 ? (ads/rev*100) : 0;
+  const acosEl = document.getElementById('fba-k-acos');
+  if (acosEl) acosEl.textContent = acos.toFixed(1) + '%';
+  // Days of stock (FBA only) = fba_units / avg_units_per_day
+  const unitsPerDay = pdSum(recent, 'units_sold') / 28;
+  const dos = unitsPerDay > 0 ? Math.round(fbaTotal / unitsPerDay) : null;
+  const dosEl = document.getElementById('fba-k-dos');
+  if (dosEl) dosEl.textContent = dos !== null ? dos + ' days' : '—';
+
+  // Per-SKU FBA rows
+  const list = document.getElementById('fba-sku-list');
+  if (!list) return;
+  const byProd = {};
+  partnerData.inventory.filter(i => i.location === 'fba').forEach(i => { byProd[i.product_id] = (byProd[i.product_id]||0) + (i.quantity||0); });
+  list.innerHTML = partnerData.products.map(p => {
+    const q = byProd[p.id] || 0;
+    if (q === 0) return '';
+    const nm = (p.name || p.sku || 'Product').replace(/</g,'&lt;');
+    // per-sku velocity
+    const sales = partnerData.sales.filter(s => s.product_id === p.id && (Date.now() - new Date(s.date).getTime()) < 28*86400000);
+    const uPerWk = pdSum(sales, 'units_sold') / 4;
+    const daysLeft = uPerWk > 0 ? Math.round(q / (uPerWk / 7)) : null;
+    const label = daysLeft === null ? 'No data' : (daysLeft < 14 ? 'Low' : (daysLeft < 28 ? 'Watch' : 'Healthy'));
+    const color = daysLeft === null ? 'var(--muted)' : (daysLeft < 14 ? 'var(--orange)' : (daysLeft < 28 ? 'var(--blue)' : 'var(--green)'));
+    const pillCls = label === 'Low' ? 'po' : (label === 'Watch' ? 'pb' : 'pg');
+    return `<div class="fcard">
+      <div class="ftop">
+        <div class="fleft">
+          <div class="fico" style="background:rgba(10,10,10,.08)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="1.6" stroke-linecap="round"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg></div>
+          <div><div class="fn">${nm}</div><div class="floc">${q} units  |  FBA</div></div>
+        </div>
+        <div><div class="fcount" style="color:${color}">${q}</div><span class="pill ${pillCls}" style="float:right;margin-top:4px">${label}</span></div>
+      </div>
+      <div class="fmet">
+        <div><div class="fml">Sell-through/wk</div><div class="fmv">~${Math.round(uPerWk)} units</div></div>
+        <div><div class="fml">Days of stock</div><div class="fmv" style="color:${color}">${daysLeft !== null ? '~' + daysLeft + ' days' : '—'}</div></div>
+        <div><div class="fml">Unit price</div><div class="fmv">$${(p.price||0).toFixed(2)}</div></div>
+      </div>
+    </div>`;
+  }).filter(Boolean).join('');
+  if (!list.innerHTML.trim()) {
+    list.innerHTML = '<div style="padding:30px 16px;text-align:center;color:var(--muted);font-size:11px">No FBA inventory data yet.</div>';
+  }
+}
+
 async function partnerRealLogin(session) {
   // Save minimal state & show authenticated view
   saveState({ authenticated: true, partnerName: (session?.user?.email || 'Partner').split('@')[0], screen: DEFAULT_SCREEN });
   setPartnerName((session?.user?.email || 'Partner').split('@')[0]);
   setAuthenticatedView(true);
-  await partnerLoadThreads();
+  await Promise.all([
+    partnerLoadThreads(),
+    partnerLoadAccountData(),
+  ]);
   renderPartnerMessagesList();
 }
 
