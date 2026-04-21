@@ -947,4 +947,247 @@ window.setChartRange = setChartRange;
 window.chartHover = chartHover;
 window.chartLeave = chartLeave;
 
+// ══════════════════════════════════════════════════════════════════════════
+// SUPABASE-BACKED MESSAGING (partner side)
+// ══════════════════════════════════════════════════════════════════════════
+const partnerMsg = {
+  threads: [],
+  activeThreadId: null,
+  msgChannel: null,
+  inboxChannel: null,
+  accountsById: {},
+  ready: false,
+};
+
+function partnerSupabase() { return window.angoraSupabase || null; }
+
+async function ensurePartnerSupabaseReady() {
+  // Wait up to 3s for the library to load
+  for (let i = 0; i < 30; i++) {
+    if (partnerSupabase()) return partnerSupabase();
+    await new Promise(r => setTimeout(r, 100));
+  }
+  return null;
+}
+
+async function partnerCheckSession() {
+  const sb = await ensurePartnerSupabaseReady();
+  if (!sb) return null;
+  const { data: { session } } = await sb.auth.getSession();
+  return session;
+}
+
+async function partnerLoadThreads() {
+  const sb = partnerSupabase(); if (!sb) return;
+  const { data: accessRows } = await sb.from('angora_partner_access').select('account_id, role');
+  const accountIds = (accessRows || []).map(r => r.account_id);
+  if (accountIds.length === 0) {
+    partnerMsg.threads = [];
+    partnerMsg.ready = true;
+    return;
+  }
+  const { data: accounts } = await sb.from('angora_accounts').select('id, name').in('id', accountIds);
+  const byId = {}; (accounts || []).forEach(a => { byId[a.id] = a; });
+  partnerMsg.accountsById = byId;
+
+  const { data: threads } = await sb.from('angora_message_threads').select('id, account_id, subject, updated_at').in('account_id', accountIds).order('updated_at', { ascending: false });
+  const lastMsgs = await Promise.all((threads || []).map(t =>
+    sb.from('angora_messages').select('content, sender_type, created_at').eq('thread_id', t.id).order('created_at', { ascending: false }).limit(1).then(r => r.data && r.data[0])
+  ));
+  partnerMsg.threads = (threads || []).map((t, i) => ({ ...t, lastMsg: lastMsgs[i] || null, account: byId[t.account_id] }));
+  partnerMsg.ready = true;
+
+  // Global realtime for inbox list updates
+  try {
+    if (partnerMsg.inboxChannel) { sb.removeChannel(partnerMsg.inboxChannel); }
+    partnerMsg.inboxChannel = sb.channel('partner-inbox-global').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'angora_messages' }, (payload) => {
+      const m = payload.new;
+      const t = partnerMsg.threads.find(x => x.id === m.thread_id);
+      if (!t) return;
+      t.lastMsg = { content: m.content, sender_type: m.sender_type, created_at: m.created_at };
+      t.updated_at = m.created_at;
+      partnerMsg.threads.sort((a,b) => new Date(b.updated_at) - new Date(a.updated_at));
+      renderPartnerMessagesList();
+      if (partnerMsg.activeThreadId === m.thread_id) partnerConvAppend(m);
+    }).subscribe();
+  } catch(e) { console.warn('partner inbox subscribe err', e); }
+}
+
+function timeShort(ts) {
+  const d = new Date(ts); const now = new Date();
+  if (d.toDateString() === now.toDateString()) return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  const diff = (now - d) / 86400000;
+  if (diff < 7) return d.toLocaleDateString([], { weekday: 'short' });
+  return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+}
+
+function initials(name) { return (name || '?').split(/\s+/).slice(0,2).map(s => s[0]).join('').toUpperCase(); }
+
+function renderPartnerMessagesList() {
+  const list = document.getElementById('messages-conv-list');
+  const sub = document.getElementById('messages-subtitle');
+  if (!list) return;
+  if (!partnerMsg.ready) {
+    list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--muted);font-size:11px">Loading\u2026</div>';
+    return;
+  }
+  if (partnerMsg.threads.length === 0) {
+    list.innerHTML = '<div style="padding:30px 16px;text-align:center;color:var(--muted);font-size:11px;line-height:1.6">No conversations yet.<br><br>Your Angora team will start messaging you here.</div>';
+    if (sub) sub.textContent = 'Your Angora team';
+    return;
+  }
+  if (sub) sub.textContent = `${partnerMsg.threads.length} conversation${partnerMsg.threads.length === 1 ? '' : 's'}`;
+  list.innerHTML = partnerMsg.threads.map(t => {
+    const last = t.lastMsg;
+    const preview = last ? (last.content || '').slice(0, 60) : '(no messages yet)';
+    const time = last ? timeShort(last.created_at) : '';
+    const isUnread = last && last.sender_type === 'garden';
+    const ini = initials(t.account?.name || 'A');
+    const escaped = preview.replace(/</g,'&lt;');
+    const nm = (t.account?.name || 'Angora').replace(/</g,'&lt;');
+    return `<div class="crow ${isUnread ? 'unread' : ''}" data-thread-id="${t.id}">
+      <div class="cav" style="background:linear-gradient(135deg,#6b4fcc,#0A0A0A)">${ini}${isUnread ? '<div class="conl"></div>' : ''}</div>
+      <div class="cbody"><div class="cname">${nm}</div><div class="cprev">${escaped}</div></div>
+      <div class="cmeta"><div class="ctime">${time}</div>${isUnread ? '<div class="ubadge">\u2022</div>' : ''}</div>
+    </div>`;
+  }).join('');
+  // Click binding
+  list.querySelectorAll('[data-thread-id]').forEach(el => {
+    el.addEventListener('click', () => {
+      partnerOpenConv(el.getAttribute('data-thread-id'));
+    });
+  });
+}
+
+async function partnerOpenConv(threadId) {
+  partnerMsg.activeThreadId = threadId;
+  const t = partnerMsg.threads.find(x => x.id === threadId);
+  const hdrName = document.getElementById('conv-hdr-name');
+  const hdrAv = document.getElementById('conv-hdr-av');
+  const hdrStatus = document.getElementById('conv-hdr-status');
+  const input = document.getElementById('conv-input');
+  if (t) {
+    if (hdrName) hdrName.textContent = `Angora \u00b7 ${t.account?.name || 'Team'}`;
+    if (hdrAv) hdrAv.firstChild && (hdrAv.firstChild.textContent = initials(t.account?.name || 'A'));
+    if (hdrStatus) hdrStatus.textContent = '\u25cf Secure channel';
+    if (input) input.placeholder = `Message your Angora team\u2026`;
+  }
+  switchTab('conv');
+
+  // Load messages
+  const sb = partnerSupabase();
+  if (!sb) return;
+  const { data: msgs } = await sb.from('angora_messages').select('*').eq('thread_id', threadId).order('created_at');
+  const list = document.getElementById('conv-msg-list');
+  if (list) {
+    list.innerHTML = (msgs || []).map(partnerBubbleHtml).join('');
+    list.scrollTop = list.scrollHeight;
+  }
+
+  // Subscribe realtime for this thread
+  try {
+    if (partnerMsg.msgChannel) { await sb.removeChannel(partnerMsg.msgChannel); }
+    partnerMsg.msgChannel = sb.channel(`partner-conv-${threadId}`).on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'angora_messages', filter: `thread_id=eq.${threadId}` }, (payload) => {
+      partnerConvAppend(payload.new);
+    }).subscribe();
+  } catch(e) { console.warn('conv subscribe err', e); }
+}
+
+function partnerBubbleHtml(m) {
+  const me = m.sender_type === 'partner';
+  const ini = me ? 'ME' : 'AN';
+  const bg = me ? 'linear-gradient(135deg,#2563eb,#767C89)' : 'linear-gradient(135deg,#6b4fcc,#0A0A0A)';
+  const txt = (m.content || '').replace(/</g,'&lt;');
+  return `<div class="msg-row ${me ? 'me' : ''}">
+    <div class="msg-av" style="background:${bg}">${ini}</div>
+    <div class="bubble ${me ? 'me' : 'them'}">${txt}</div>
+  </div>`;
+}
+
+function partnerConvAppend(m) {
+  const list = document.getElementById('conv-msg-list');
+  if (!list) return;
+  const div = document.createElement('div');
+  div.innerHTML = partnerBubbleHtml(m);
+  list.appendChild(div.firstChild);
+  list.scrollTop = list.scrollHeight;
+}
+
+window.sendPartnerMessage = async function() {
+  const input = document.getElementById('conv-input');
+  if (!input) return;
+  const content = (input.value || '').trim();
+  if (!content) return;
+  const threadId = partnerMsg.activeThreadId; if (!threadId) return;
+  const sb = partnerSupabase(); if (!sb) return;
+  const { data: userRes } = await sb.auth.getUser();
+  const userId = userRes && userRes.user ? userRes.user.id : null;
+  const { error } = await sb.from('angora_messages').insert({ thread_id: threadId, sender_id: userId, sender_type: 'partner', content });
+  if (error) return alert('Send failed: ' + error.message);
+  input.value = '';
+};
+
+async function partnerRealLogin(session) {
+  // Save minimal state & show authenticated view
+  saveState({ authenticated: true, partnerName: (session?.user?.email || 'Partner').split('@')[0], screen: DEFAULT_SCREEN });
+  setPartnerName((session?.user?.email || 'Partner').split('@')[0]);
+  setAuthenticatedView(true);
+  await partnerLoadThreads();
+  renderPartnerMessagesList();
+}
+
+function bindRealAuth() {
+  const form = document.getElementById('real-login-form');
+  if (!form) return;
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const emailEl = document.getElementById('real-login-email');
+    const msgEl = document.getElementById('real-login-msg');
+    const email = (emailEl?.value || '').trim();
+    if (!email) return;
+    const sb = await ensurePartnerSupabaseReady();
+    if (!sb) { if (msgEl) msgEl.textContent = 'Auth service not available.'; return; }
+    if (msgEl) msgEl.textContent = 'Sending magic link\u2026';
+    const { error } = await sb.auth.signInWithOtp({
+      email,
+      options: { emailRedirectTo: window.location.href }
+    });
+    if (error) { if (msgEl) { msgEl.textContent = 'Error: ' + error.message; msgEl.style.color = '#dc2626'; } return; }
+    if (msgEl) { msgEl.textContent = '\u2713 Check your inbox for the sign-in link.'; msgEl.style.color = '#059669'; }
+  });
+}
+
+// Bootstrap real auth after initial app init
+(async function bootPartnerAuth() {
+  // Wait a tick for initializeApp's DOMContentLoaded + motion init
+  await new Promise(r => setTimeout(r, 250));
+  bindRealAuth();
+  const session = await partnerCheckSession();
+  if (session) {
+    await partnerRealLogin(session);
+  } else {
+    // Still prime the messages subtitle etc for demo mode
+    renderPartnerMessagesList();
+  }
+  // React to auth state changes (e.g. after magic link)
+  const sb = partnerSupabase();
+  if (sb) {
+    sb.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' && session) {
+        await partnerRealLogin(session);
+      }
+    });
+  }
+})();
+
+// When user switches to messages tab, refresh
+const origSwitchTab = switchTab;
+window.switchTab = function(tabOrScreen, opts) {
+  const result = origSwitchTab(tabOrScreen, opts);
+  if (tabOrScreen === 'messages' && partnerMsg.ready) {
+    renderPartnerMessagesList();
+  }
+  return result;
+};
+
 initializeApp();
