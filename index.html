@@ -177,24 +177,24 @@
       <!-- Snapshot hero -->
       <div class="snap-card">
         <div class="snap-eyebrow">Account Snapshot</div>
-        <div class="snap-brand">Cal &amp; Rye</div>
+        <div class="snap-brand" id="home-brand">Cal &amp; Rye</div>
         <div class="snap-kpis">
           <div class="sk">
-            <div class="skv" style="color:var(--green)">$8,120</div>
+            <div class="skv" style="color:var(--green)" id="home-kpi-profit">$8,120</div>
             <div class="skl">This Week<br>Profit</div>
           </div>
           <div class="sk">
-            <div class="skv" style="color:var(--purple2)">847</div>
+            <div class="skv" style="color:var(--purple2)" id="home-kpi-fba">847</div>
             <div class="skl">Units<br>in FBA</div>
           </div>
           <div class="sk">
-            <div class="skv" style="color:var(--orange)">3</div>
+            <div class="skv" style="color:var(--orange)" id="home-kpi-pos">3</div>
             <div class="skl">Open<br>POs</div>
           </div>
         </div>
         <div class="snap-footer">
           <div class="ldot"></div>
-          Live  |  Updated just now
+          <span id="home-updated">Live  |  Updated just now</span>
         </div>
       </div>
 
@@ -448,15 +448,15 @@
 
     <!-- ══════ INVENTORY ══════ -->
     <div class="ts" id="screen-inventory">
-      <div class="ph"><div class="back" onclick="switchTab('home')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2.5" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg></div><div class="ptitle">Inventory</div><div class="psub">Angora Warehouse + FBA</div></div>
+      <div class="ph"><div class="back" onclick="switchTab('home')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2.5" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg></div><div class="ptitle">Inventory</div><div class="psub" id="inv-psub">Angora Warehouse + FBA</div></div>
       <div class="igrid">
-        <div class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="1.6" stroke-linecap="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg><div class="iv" style="color:var(--blue)">396</div><div class="il">In Warehouse</div><div class="is">Angora network</div></div>
-        <div class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--purple2)" stroke-width="1.6" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="2" y1="9" x2="22" y2="9"/></svg><div class="iv" style="color:var(--purple2)">847</div><div class="il">In FBA</div><div class="is">Amazon centers</div></div>
-        <div class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.6" stroke-linecap="round"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg><div class="iv" style="color:var(--text)">1,243</div><div class="il">Total Units</div><div class="is">All locations</div></div>
-        <div class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="1.6" stroke-linecap="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg><div class="iv" style="color:var(--orange);font-size:18px">21 days</div><div class="il">Runway</div><div class="is">At current velocity</div></div>
+        <div class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="1.6" stroke-linecap="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg><div class="iv" style="color:var(--blue)" id="inv-k-warehouse">396</div><div class="il">In Warehouse</div><div class="is">Angora network</div></div>
+        <div class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--purple2)" stroke-width="1.6" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="2" y1="9" x2="22" y2="9"/></svg><div class="iv" style="color:var(--purple2)" id="inv-k-fba">847</div><div class="il">In FBA</div><div class="is">Amazon centers</div></div>
+        <div class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.6" stroke-linecap="round"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg><div class="iv" style="color:var(--text)" id="inv-k-total">1,243</div><div class="il">Total Units</div><div class="is">All locations</div></div>
+        <div class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="1.6" stroke-linecap="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg><div class="iv" style="color:var(--orange);font-size:18px" id="inv-k-runway">21 days</div><div class="il">Runway</div><div class="is">At current velocity</div></div>
       </div>
       <div class="slbl">By SKU</div>
-      <div class="slist">
+      <div class="slist" id="inv-sku-list">
         <div class="skuinv"><div class="sit"><div class="sil"><div class="sdot" style="background:var(--green);margin-top:5px"></div><div><div class="sin">Bookshelf for Kids</div><div class="siloc">Warehouse: 280  |  FBA: 540</div></div></div><div><div class="sic" style="color:var(--text)">820</div><span class="pill pg">Healthy</span></div></div><div class="prow"><span>820 / 1,000 target</span><span>82%</span></div><div class="pbar"><div class="pfill" style="width:82%;background:var(--green)"></div></div></div>
         <div class="skuinv"><div class="sit"><div class="sil"><div class="sdot" style="background:var(--orange);margin-top:5px"></div><div><div class="sin">Kids Art Table</div><div class="siloc">Warehouse: 116  |  FBA: 307</div></div></div><div><div class="sic" style="color:var(--orange)">423</div><span class="pill po">Low Stock</span></div></div><div class="prow"><span>423 / 800 target</span><span style="color:var(--orange)">53%</span></div><div class="pbar"><div class="pfill" style="width:53%;background:var(--orange)"></div></div></div>
       </div>
@@ -485,12 +485,12 @@
     <div class="ts" id="screen-fba">
       <div class="ph"><div class="back" onclick="switchTab('home')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2.5" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg></div><div class="ptitle">FBA Inventory</div><div class="psub">Amazon Fulfillment Centers</div></div>
       <div class="sgrid" style="margin-bottom:22px">
-        <div class="sg"><div class="sgv" style="color:var(--purple2)">847</div><div class="sgl">Total Units</div></div>
-        <div class="sg"><div class="sgv" style="color:var(--orange)">12.8%</div><div class="sgl">ACoS</div></div>
-        <div class="sg"><div class="sgv" style="color:var(--green);font-size:13px">28 days</div><div class="sgl">Days of Stock</div></div>
+        <div class="sg"><div class="sgv" style="color:var(--purple2)" id="fba-k-total">847</div><div class="sgl">Total Units</div></div>
+        <div class="sg"><div class="sgv" style="color:var(--orange)" id="fba-k-acos">12.8%</div><div class="sgl">ACoS</div></div>
+        <div class="sg"><div class="sgv" style="color:var(--green);font-size:13px" id="fba-k-dos">28 days</div><div class="sgl">Days of Stock</div></div>
       </div>
       <div class="slbl">FBA by SKU</div>
-      <div class="slist">
+      <div class="slist" id="fba-sku-list">
         <div class="fcard"><div class="ftop"><div class="fleft"><div class="fico" style="background:rgba(10,10,10,.08)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="1.6" stroke-linecap="round"><path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z"/><path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z"/></svg></div><div><div class="fn">Bookshelf for Kids</div><div class="floc">540 units  |  SFO4</div></div></div><div><div class="fcount" style="color:var(--green)">540</div><span class="pill pg" style="float:right;margin-top:4px">Healthy</span></div></div><div class="fmet"><div><div class="fml">Sell-through/wk</div><div class="fmv">~85 units</div></div><div><div class="fml">Days of stock</div><div class="fmv" style="color:var(--green)">~36 days</div></div><div><div class="fml">Storage fee</div><div class="fmv">$0.42/u</div></div></div></div>
         <div class="fcard"><div class="ftop"><div class="fleft"><div class="fico" style="background:rgba(10,10,10,.08)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="1.6" stroke-linecap="round"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg></div><div><div class="fn">Kids Art Table</div><div class="floc">307 units  |  LGB4</div></div></div><div><div class="fcount" style="color:var(--orange)">307</div><span class="pill po" style="float:right;margin-top:4px">Low</span></div></div><div class="fmet"><div><div class="fml">Sell-through/wk</div><div class="fmv">~150 units</div></div><div><div class="fml">Days of stock</div><div class="fmv" style="color:var(--orange)">~14 days</div></div><div><div class="fml">Storage fee</div><div class="fmv">$0.61/u</div></div></div></div>
       </div>
